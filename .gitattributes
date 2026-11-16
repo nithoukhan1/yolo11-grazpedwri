@@ -1,0 +1,4 @@
+# Keep source checkouts usable on Linux/Kaggle; binary files remain unchanged.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
