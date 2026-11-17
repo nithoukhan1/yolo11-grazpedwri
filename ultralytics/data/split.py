@@ -11,11 +11,10 @@ from ultralytics.utils import DATASETS_DIR, LOGGER, TQDM
 
 
 def split_classify_dataset(source_dir: str | Path, train_ratio: float = 0.8) -> Path:
-    """
-    Split classification dataset into train and val directories in a new directory.
+    """Split classification dataset into train and val directories in a new directory.
 
-    Creates a new directory '{source_dir}_split' with train/val subdirectories, preserving the original class
-    structure with an 80/20 split by default.
+    Creates a new directory '{source_dir}_split' with train/val subdirectories, preserving the original class structure
+    with an 80/20 split by default.
 
     Directory structure:
         Before:
@@ -68,7 +67,9 @@ def split_classify_dataset(source_dir: str | Path, train_ratio: float = 0.8) -> 
         raise ValueError("train_ratio must be between 0 and 1")
     split_path = Path(f"{source_path}_split")
     if split_path.exists() and any(split_path.iterdir()):
-        raise FileExistsError(f"Split destination is not empty: {split_path}; use a new destination to avoid train/val leakage.")
+        raise FileExistsError(
+            f"Split destination is not empty: {split_path}; use a new destination to avoid train/val leakage."
+        )
     train_path, val_path = split_path / "train", split_path / "val"
 
     # Create directory structure
@@ -107,8 +108,8 @@ def autosplit(
     weights: tuple[float, float, float] = (0.9, 0.1, 0.0),
     annotated_only: bool = False,
 ) -> None:
-    """
-    Automatically split a dataset into train/val/test splits and save the resulting splits into autosplit_*.txt files.
+    """Automatically split a dataset into train/val/test splits and save the resulting splits into autosplit_*.txt
+    files.
 
     Args:
         path (Path): Path to images directory.
