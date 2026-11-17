@@ -28,8 +28,8 @@ class MSDA(nn.Module):
         self.head_dim = math.ceil(dim / self.num_heads)
         self.heads_per_scale = self.num_heads // self.num_scales
         self.inner_dim = self.head_dim * self.num_heads
-        self.kernel_area = kernel_size ** 2
-        self.scale = self.head_dim ** -0.5
+        self.kernel_area = kernel_size**2
+        self.scale = self.head_dim**-0.5
         self.norm1 = nn.LayerNorm(dim)
         self.norm2 = nn.LayerNorm(dim)
         self.qkv = nn.Conv2d(dim, 3 * self.inner_dim, 1, bias=False)
@@ -37,7 +37,9 @@ class MSDA(nn.Module):
             nn.Unfold(kernel_size, dilation=d, padding=d * (kernel_size // 2)) for d in self.dilations
         )
         self.proj = nn.Conv2d(self.inner_dim, dim, 1)
-        self.ffn = nn.Sequential(nn.Conv2d(dim, int(dim * mlp_ratio), 1), nn.GELU(), nn.Conv2d(int(dim * mlp_ratio), dim, 1))
+        self.ffn = nn.Sequential(
+            nn.Conv2d(dim, int(dim * mlp_ratio), 1), nn.GELU(), nn.Conv2d(int(dim * mlp_ratio), dim, 1)
+        )
 
     @staticmethod
     def _norm(x, norm):
@@ -49,7 +51,9 @@ class MSDA(nn.Module):
         outputs = []
         for i, unfold in enumerate(self.unfolds):
             q = qkv[:, 0, i].reshape(batch, self.heads_per_scale, self.head_dim, height * width)
-            k = unfold(qkv[:, 1, i]).reshape(batch, self.heads_per_scale, self.head_dim, self.kernel_area, height * width)
+            k = unfold(qkv[:, 1, i]).reshape(
+                batch, self.heads_per_scale, self.head_dim, self.kernel_area, height * width
+            )
             v = unfold(qkv[:, 2, i]).reshape_as(k)
             weights = (torch.einsum("bhdn,bhdkn->bhnk", q, k) * self.scale).softmax(dim=-1)
             attended = torch.einsum("bhnk,bhdkn->bhdn", weights, v)
