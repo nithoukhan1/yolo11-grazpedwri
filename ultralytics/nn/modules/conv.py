@@ -7,50 +7,51 @@ import math
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torchvision.ops import deform_conv2d  # For DODConv
 
 __all__ = (
+    "CARAFE",  # Added CARAFE to exports
+    "CBAM",
+    "ChannelAttention",
+    "Concat",
     "Conv",
     "Conv2",
-    "LightConv",
+    "ConvBNReLU",  # Added ConvBNReLU to exports
+    "ConvTranspose",
+    "DODConv",  # Added DODConv here and in the end.
     "DWConv",
     "DWConvTranspose2d",
-    "ConvTranspose",
+    "DySample",  # Added DySample at the end
+    "DySnakeConv",  # Added DySnakeConv here and in the end.
     "Focus",
-    "GhostConv",
-    "ChannelAttention",
-    "SpatialAttention",
-    "CBAM",
-    "Concat",
-    "RepConv",
-    "Index",
-    "ResBlock_CBAM",  # Added ResBlock_CBAM here and in the end.
-    "DySample",       # Added DySample at the end
-    "DySnakeConv",    # Added DySnakeConv here and in the end.
-    "DODConv",        # Added DODConv here and in the end.
     "GAM_Attention",  # Added GAM_Attention import
-    "HetConv",        # Added HetConv to exports
-    "CARAFE",         # Added CARAFE to exports
-    "ConvBNReLU",     # Added ConvBNReLU to exports
-    
+    "GhostConv",
+    "HetConv",  # Added HetConv to exports
+    "Index",
+    "LightConv",
+    "RepConv",
+    "ResBlock_CBAM",  # Added ResBlock_CBAM here and in the end.
+    "SpatialAttention",
 )
 
 
 def normal_init(module, mean=0, std=1, bias=0):
     """Initialize weights with normal distribution and bias with constant."""
-    if hasattr(module, 'weight') and module.weight is not None:
+    if hasattr(module, "weight") and module.weight is not None:
         nn.init.normal_(module.weight, mean, std)
-    if hasattr(module, 'bias') and module.bias is not None:
+    if hasattr(module, "bias") and module.bias is not None:
         nn.init.constant_(module.bias, bias)
+
 
 def constant_init(module, val, bias=0):
     """Initialize weights with constant value and bias with constant."""
-    if hasattr(module, 'weight') and module.weight is not None:
+    if hasattr(module, "weight") and module.weight is not None:
         nn.init.constant_(module.weight, val)
-    if hasattr(module, 'bias') and module.bias is not None:
+    if hasattr(module, "bias") and module.bias is not None:
         nn.init.constant_(module.bias, bias)
+
 
 def channel_shuffle(x, groups):
     """Channel shuffle operation for group convolutions."""
@@ -60,6 +61,7 @@ def channel_shuffle(x, groups):
     x = torch.transpose(x, 1, 2).contiguous()
     x = x.view(batchsize, -1, height, width)
     return x
+
 
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
     """Pad to 'same' shape outputs."""
@@ -71,8 +73,7 @@ def autopad(k, p=None, d=1):  # kernel, padding, dilation
 
 
 class Conv(nn.Module):
-    """
-    Standard convolution module with batch normalization and activation.
+    """Standard convolution module with batch normalization and activation.
 
     Attributes:
         conv (nn.Conv2d): Convolutional layer.
@@ -84,8 +85,7 @@ class Conv(nn.Module):
     default_act = nn.SiLU()  # default activation
 
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
-        """
-        Initialize Conv layer with given parameters.
+        """Initialize Conv layer with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -103,8 +103,7 @@ class Conv(nn.Module):
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
-        """
-        Apply convolution, batch normalization and activation to input tensor.
+        """Apply convolution, batch normalization and activation to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -115,8 +114,7 @@ class Conv(nn.Module):
         return self.act(self.bn(self.conv(x)))
 
     def forward_fuse(self, x):
-        """
-        Apply convolution and activation without batch normalization.
+        """Apply convolution and activation without batch normalization.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -128,8 +126,7 @@ class Conv(nn.Module):
 
 
 class Conv2(Conv):
-    """
-    Simplified RepConv module with Conv fusing.
+    """Simplified RepConv module with Conv fusing.
 
     Attributes:
         conv (nn.Conv2d): Main 3x3 convolutional layer.
@@ -139,8 +136,7 @@ class Conv2(Conv):
     """
 
     def __init__(self, c1, c2, k=3, s=1, p=None, g=1, d=1, act=True):
-        """
-        Initialize Conv2 layer with given parameters.
+        """Initialize Conv2 layer with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -156,8 +152,7 @@ class Conv2(Conv):
         self.cv2 = nn.Conv2d(c1, c2, 1, s, autopad(1, p, d), groups=g, dilation=d, bias=False)  # add 1x1 conv
 
     def forward(self, x):
-        """
-        Apply convolution, batch normalization and activation to input tensor.
+        """Apply convolution, batch normalization and activation to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -186,8 +181,7 @@ class Conv2(Conv):
 
 
 class LightConv(nn.Module):
-    """
-    Light convolution module with 1x1 and depthwise convolutions.
+    """Light convolution module with 1x1 and depthwise convolutions.
 
     This implementation is based on the PaddleDetection HGNetV2 backbone.
 
@@ -197,8 +191,7 @@ class LightConv(nn.Module):
     """
 
     def __init__(self, c1, c2, k=1, act=nn.ReLU()):
-        """
-        Initialize LightConv layer with given parameters.
+        """Initialize LightConv layer with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -211,8 +204,7 @@ class LightConv(nn.Module):
         self.conv2 = DWConv(c2, c2, k, act=act)
 
     def forward(self, x):
-        """
-        Apply 2 convolutions to input tensor.
+        """Apply 2 convolutions to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -227,8 +219,7 @@ class DWConv(Conv):
     """Depth-wise convolution module."""
 
     def __init__(self, c1, c2, k=1, s=1, d=1, act=True):
-        """
-        Initialize depth-wise convolution with given parameters.
+        """Initialize depth-wise convolution with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -245,8 +236,7 @@ class DWConvTranspose2d(nn.ConvTranspose2d):
     """Depth-wise transpose convolution module."""
 
     def __init__(self, c1, c2, k=1, s=1, p1=0, p2=0):
-        """
-        Initialize depth-wise transpose convolution with given parameters.
+        """Initialize depth-wise transpose convolution with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -260,8 +250,7 @@ class DWConvTranspose2d(nn.ConvTranspose2d):
 
 
 class ConvTranspose(nn.Module):
-    """
-    Convolution transpose module with optional batch normalization and activation.
+    """Convolution transpose module with optional batch normalization and activation.
 
     Attributes:
         conv_transpose (nn.ConvTranspose2d): Transposed convolution layer.
@@ -273,8 +262,7 @@ class ConvTranspose(nn.Module):
     default_act = nn.SiLU()  # default activation
 
     def __init__(self, c1, c2, k=2, s=2, p=0, bn=True, act=True):
-        """
-        Initialize ConvTranspose layer with given parameters.
+        """Initialize ConvTranspose layer with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -291,8 +279,7 @@ class ConvTranspose(nn.Module):
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
-        """
-        Apply transposed convolution, batch normalization and activation to input.
+        """Apply transposed convolution, batch normalization and activation to input.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -303,8 +290,7 @@ class ConvTranspose(nn.Module):
         return self.act(self.bn(self.conv_transpose(x)))
 
     def forward_fuse(self, x):
-        """
-        Apply activation and convolution transpose operation to input.
+        """Apply activation and convolution transpose operation to input.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -316,8 +302,7 @@ class ConvTranspose(nn.Module):
 
 
 class Focus(nn.Module):
-    """
-    Focus module for concentrating feature information.
+    """Focus module for concentrating feature information.
 
     Slices input tensor into 4 parts and concatenates them in the channel dimension.
 
@@ -326,8 +311,7 @@ class Focus(nn.Module):
     """
 
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):
-        """
-        Initialize Focus module with given parameters.
+        """Initialize Focus module with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -343,8 +327,7 @@ class Focus(nn.Module):
         # self.contract = Contract(gain=2)
 
     def forward(self, x):
-        """
-        Apply Focus operation and convolution to input tensor.
+        """Apply Focus operation and convolution to input tensor.
 
         Input shape is (B, C, W, H) and output shape is (B, 4C, W/2, H/2).
 
@@ -359,8 +342,7 @@ class Focus(nn.Module):
 
 
 class GhostConv(nn.Module):
-    """
-    Ghost Convolution module.
+    """Ghost Convolution module.
 
     Generates more features with fewer parameters by using cheap operations.
 
@@ -373,8 +355,7 @@ class GhostConv(nn.Module):
     """
 
     def __init__(self, c1, c2, k=1, s=1, g=1, act=True):
-        """
-        Initialize Ghost Convolution module with given parameters.
+        """Initialize Ghost Convolution module with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -390,8 +371,7 @@ class GhostConv(nn.Module):
         self.cv2 = Conv(c_, c_, 5, 1, None, c_, act=act)
 
     def forward(self, x):
-        """
-        Apply Ghost Convolution to input tensor.
+        """Apply Ghost Convolution to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -404,8 +384,7 @@ class GhostConv(nn.Module):
 
 
 class RepConv(nn.Module):
-    """
-    RepConv module with training and deploy modes.
+    """RepConv module with training and deploy modes.
 
     This module is used in RT-DETR and can fuse convolutions during inference for efficiency.
 
@@ -423,8 +402,7 @@ class RepConv(nn.Module):
     default_act = nn.SiLU()  # default activation
 
     def __init__(self, c1, c2, k=3, s=1, p=1, g=1, d=1, act=True, bn=False, deploy=False):
-        """
-        Initialize RepConv module with given parameters.
+        """Initialize RepConv module with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -450,8 +428,7 @@ class RepConv(nn.Module):
         self.conv2 = Conv(c1, c2, 1, s, p=(p - k // 2), g=g, act=False)
 
     def forward_fuse(self, x):
-        """
-        Forward pass for deploy mode.
+        """Forward pass for deploy mode.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -462,8 +439,7 @@ class RepConv(nn.Module):
         return self.act(self.conv(x))
 
     def forward(self, x):
-        """
-        Forward pass for training mode.
+        """Forward pass for training mode.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -475,8 +451,7 @@ class RepConv(nn.Module):
         return self.act(self.conv1(x) + self.conv2(x) + id_out)
 
     def get_equivalent_kernel_bias(self):
-        """
-        Calculate equivalent kernel and bias by fusing convolutions.
+        """Calculate equivalent kernel and bias by fusing convolutions.
 
         Returns:
             (torch.Tensor): Equivalent kernel
@@ -489,8 +464,7 @@ class RepConv(nn.Module):
 
     @staticmethod
     def _pad_1x1_to_3x3_tensor(kernel1x1):
-        """
-        Pad a 1x1 kernel to 3x3 size.
+        """Pad a 1x1 kernel to 3x3 size.
 
         Args:
             kernel1x1 (torch.Tensor): 1x1 convolution kernel.
@@ -504,8 +478,7 @@ class RepConv(nn.Module):
             return torch.nn.functional.pad(kernel1x1, [1, 1, 1, 1])
 
     def _fuse_bn_tensor(self, branch):
-        """
-        Fuse batch normalization with convolution weights.
+        """Fuse batch normalization with convolution weights.
 
         Args:
             branch (Conv | nn.BatchNorm2d | None): Branch to fuse.
@@ -570,8 +543,7 @@ class RepConv(nn.Module):
 
 
 class ChannelAttention(nn.Module):
-    """
-    Channel-attention module for feature recalibration.
+    """Channel-attention module for feature recalibration.
 
     Applies attention weights to channels based on global average pooling.
 
@@ -585,8 +557,7 @@ class ChannelAttention(nn.Module):
     """
 
     def __init__(self, channels: int) -> None:
-        """
-        Initialize Channel-attention module.
+        """Initialize Channel-attention module.
 
         Args:
             channels (int): Number of input channels.
@@ -597,8 +568,7 @@ class ChannelAttention(nn.Module):
         self.act = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Apply channel attention to input tensor.
+        """Apply channel attention to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -610,8 +580,7 @@ class ChannelAttention(nn.Module):
 
 
 class SpatialAttention(nn.Module):
-    """
-    Spatial-attention module for feature recalibration.
+    """Spatial-attention module for feature recalibration.
 
     Applies attention weights to spatial dimensions based on channel statistics.
 
@@ -621,8 +590,7 @@ class SpatialAttention(nn.Module):
     """
 
     def __init__(self, kernel_size=7):
-        """
-        Initialize Spatial-attention module.
+        """Initialize Spatial-attention module.
 
         Args:
             kernel_size (int): Size of the convolutional kernel (3 or 7).
@@ -634,8 +602,7 @@ class SpatialAttention(nn.Module):
         self.act = nn.Sigmoid()
 
     def forward(self, x):
-        """
-        Apply spatial attention to input tensor.
+        """Apply spatial attention to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -647,8 +614,7 @@ class SpatialAttention(nn.Module):
 
 
 class CBAM(nn.Module):
-    """
-    Convolutional Block Attention Module.
+    """Convolutional Block Attention Module.
 
     Combines channel and spatial attention mechanisms for comprehensive feature refinement.
 
@@ -658,8 +624,7 @@ class CBAM(nn.Module):
     """
 
     def __init__(self, c1, kernel_size=7):
-        """
-        Initialize CBAM with given parameters.
+        """Initialize CBAM with given parameters.
 
         Args:
             c1 (int): Number of input channels.
@@ -670,8 +635,7 @@ class CBAM(nn.Module):
         self.spatial_attention = SpatialAttention(kernel_size)
 
     def forward(self, x):
-        """
-        Apply channel and spatial attention sequentially to input tensor.
+        """Apply channel and spatial attention sequentially to input tensor.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -683,16 +647,14 @@ class CBAM(nn.Module):
 
 
 class Concat(nn.Module):
-    """
-    Concatenate a list of tensors along specified dimension.
+    """Concatenate a list of tensors along specified dimension.
 
     Attributes:
         d (int): Dimension along which to concatenate tensors.
     """
 
     def __init__(self, dimension=1):
-        """
-        Initialize Concat module.
+        """Initialize Concat module.
 
         Args:
             dimension (int): Dimension along which to concatenate tensors.
@@ -701,8 +663,7 @@ class Concat(nn.Module):
         self.d = dimension
 
     def forward(self, x: list[torch.Tensor]):
-        """
-        Concatenate input tensors along specified dimension.
+        """Concatenate input tensors along specified dimension.
 
         Args:
             x (list[torch.Tensor]): List of input tensors.
@@ -714,16 +675,14 @@ class Concat(nn.Module):
 
 
 class Index(nn.Module):
-    """
-    Returns a particular index of the input.
+    """Returns a particular index of the input.
 
     Attributes:
         index (int): Index to select from input.
     """
 
     def __init__(self, index=0):
-        """
-        Initialize Index module.
+        """Initialize Index module.
 
         Args:
             index (int): Index to select from input.
@@ -732,8 +691,7 @@ class Index(nn.Module):
         self.index = index
 
     def forward(self, x: list[torch.Tensor]):
-        """
-        Select and return a particular index from input.
+        """Select and return a particular index from input.
 
         Args:
             x (list[torch.Tensor]): List of input tensors.
@@ -742,15 +700,14 @@ class Index(nn.Module):
             (torch.Tensor): Selected tensor.
         """
         return x[self.index]
-    
-    
-class ResBlock_CBAM(nn.Module):
-    """
-    Residual Block with Convolutional Block Attention Module.
 
-    Combines residual connections with CBAM attention for enhanced feature learning.
-    Uses Ultralytics' average-pooling-only channel gate, not the original
-    CBAM average/max-pooling shared-MLP gate. See CUSTOM_MODULE_REVIEW.md.
+
+class ResBlock_CBAM(nn.Module):
+    """Residual Block with Convolutional Block Attention Module.
+
+    Combines residual connections with CBAM attention for enhanced feature learning. Uses Ultralytics'
+    average-pooling-only channel gate, not the original CBAM average/max-pooling shared-MLP gate. See
+    CUSTOM_MODULE_REVIEW.md.
 
     Attributes:
         expansion (int): Channel expansion factor.
@@ -762,8 +719,7 @@ class ResBlock_CBAM(nn.Module):
     """
 
     def __init__(self, in_places, places, stride=1, downsampling=False, expansion=1):
-        """
-        Initialize ResBlock_CBAM with given parameters.
+        """Initialize ResBlock_CBAM with given parameters.
 
         Args:
             in_places (int): Number of input channels.
@@ -772,7 +728,7 @@ class ResBlock_CBAM(nn.Module):
             downsampling (bool): Whether to apply downsampling.
             expansion (int): Channel expansion factor.
         """
-        super(ResBlock_CBAM, self).__init__()
+        super().__init__()
         self.expansion = expansion
         self.downsampling = downsampling
 
@@ -783,23 +739,26 @@ class ResBlock_CBAM(nn.Module):
             nn.Conv2d(in_channels=places, out_channels=places, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(places),
             nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(in_channels=places, out_channels=places * self.expansion, kernel_size=1, stride=1,
-                      bias=False),
+            nn.Conv2d(in_channels=places, out_channels=places * self.expansion, kernel_size=1, stride=1, bias=False),
             nn.BatchNorm2d(places * self.expansion),
         )
         self.cbam = CBAM(c1=places * self.expansion)
 
         if self.downsampling:
             self.downsample = nn.Sequential(
-                nn.Conv2d(in_channels=in_places, out_channels=places * self.expansion, kernel_size=1, stride=stride,
-                          bias=False),
-                nn.BatchNorm2d(places * self.expansion)
+                nn.Conv2d(
+                    in_channels=in_places,
+                    out_channels=places * self.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(places * self.expansion),
             )
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        """
-        Forward pass through ResBlock_CBAM.
+        """Forward pass through ResBlock_CBAM.
 
         Args:
             x (torch.Tensor): Input tensor.
@@ -816,42 +775,38 @@ class ResBlock_CBAM(nn.Module):
         out += residual
         out = self.relu(out)
         return out
-    
-    
+
+
 class DySample(nn.Module):
-    """
-    Dynamic Upsampling Module (DySample) - FIXED for Ultralytics
-    """
-    
-    def __init__(self, c1, scale=2, style='lp', groups=4, dyscope=False, shortcut=False, g=1):
-        """
-        UPDATED CONSTRUCTOR - Fixed in_channels definition
-        """
+    """Dynamic Upsampling Module (DySample) - FIXED for Ultralytics."""
+
+    def __init__(self, c1, scale=2, style="lp", groups=4, dyscope=False, shortcut=False, g=1):
+        """UPDATED CONSTRUCTOR - Fixed in_channels definition."""
         super().__init__()
         self.scale = scale
         self.style = style
         self.groups = groups
-        assert style in ['lp', 'pl']
-        if style == 'pl':
-            assert c1 >= scale ** 2 and c1 % scale ** 2 == 0
+        assert style in ["lp", "pl"]
+        if style == "pl":
+            assert c1 >= scale**2 and c1 % scale**2 == 0
         assert c1 >= groups and c1 % groups == 0
 
         # FIX: Define in_channels for both styles
-        if style == 'pl':
-            in_channels = c1 // scale ** 2
+        if style == "pl":
+            in_channels = c1 // scale**2
             out_channels = 2 * groups
         else:
             in_channels = c1  # ADD THIS LINE - in_channels is c1 for 'lp' style
-            out_channels = 2 * groups * scale ** 2
+            out_channels = 2 * groups * scale**2
 
         self.offset = nn.Conv2d(in_channels, out_channels, 1)
         normal_init(self.offset, std=0.001)
-        
+
         if dyscope:
             self.scope = nn.Conv2d(in_channels, out_channels, 1, bias=False)
-            constant_init(self.scope, val=0.)
+            constant_init(self.scope, val=0.0)
 
-        self.register_buffer('init_pos', self._init_pos())
+        self.register_buffer("init_pos", self._init_pos())
 
     def _init_pos(self):
         """Initialize sampling positions."""
@@ -868,14 +823,20 @@ class DySample(nn.Module):
         coords = coords.transpose(1, 2).unsqueeze(1).unsqueeze(0).type(x.dtype).to(x.device)
         normalizer = torch.tensor([W, H], dtype=x.dtype, device=x.device).view(1, 2, 1, 1, 1)
         coords = 2 * (coords + offset) / normalizer - 1
-        coords = F.pixel_shuffle(coords.view(B, -1, H, W), self.scale).view(
-            B, 2, -1, self.scale * H, self.scale * W).permute(0, 2, 3, 4, 1).contiguous().flatten(0, 1)
-        return F.grid_sample(x.reshape(B * self.groups, -1, H, W), coords, mode='bilinear',
-                             align_corners=False, padding_mode="border").view(B, -1, self.scale * H, self.scale * W)
+        coords = (
+            F.pixel_shuffle(coords.view(B, -1, H, W), self.scale)
+            .view(B, 2, -1, self.scale * H, self.scale * W)
+            .permute(0, 2, 3, 4, 1)
+            .contiguous()
+            .flatten(0, 1)
+        )
+        return F.grid_sample(
+            x.reshape(B * self.groups, -1, H, W), coords, mode="bilinear", align_corners=False, padding_mode="border"
+        ).view(B, -1, self.scale * H, self.scale * W)
 
     def forward_lp(self, x):
         """Forward pass for low-pass style."""
-        if hasattr(self, 'scope'):
+        if hasattr(self, "scope"):
             offset = self.offset(x) * self.scope(x).sigmoid() * 0.5 + self.init_pos
         else:
             offset = self.offset(x) * 0.25 + self.init_pos
@@ -884,21 +845,19 @@ class DySample(nn.Module):
     def forward_pl(self, x):
         """Forward pass for pixel-shuffle like style."""
         x_ = F.pixel_shuffle(x, self.scale)
-        if hasattr(self, 'scope'):
+        if hasattr(self, "scope"):
             offset = F.pixel_unshuffle(self.offset(x_) * self.scope(x_).sigmoid(), self.scale) * 0.5 + self.init_pos
         else:
             offset = F.pixel_unshuffle(self.offset(x_), self.scale) * 0.25 + self.init_pos
         return self.sample(x, offset)
 
     def forward(self, x):
-        """
-        Forward pass through DySample module.
-        """
-        if self.style == 'pl':
+        """Forward pass through DySample module."""
+        if self.style == "pl":
             return self.forward_pl(x)
         return self.forward_lp(x)
-    
-    
+
+
 class DySnakeConv(nn.Module):
     def __init__(self, inc, ouc, k=3, s=1, project=False) -> None:
         super().__init__()
@@ -924,9 +883,9 @@ class DSConv(nn.Module):
         :param morph: the morphology of the convolution kernel (0 for x-axis, 1 for y-axis)
         :param kernel_size: the size of kernel (default 3)
         :param extend_scope: the range to expand (default 1 for this method)
-        :param if_offset: whether deformation is required (default True)
+        :param if_offset: whether deformation is required (default True).
         """
-        super(DSConv, self).__init__()
+        super().__init__()
         if not isinstance(kernel_size, int) or kernel_size < 1 or kernel_size % 2 == 0:
             raise ValueError("DSConv kernel_size must be a positive odd integer")
         # use the <offset_conv> to learn the deformable offset
@@ -977,7 +936,7 @@ class DSConv(nn.Module):
             return x
 
 
-class DSC(object):
+class DSC:
     def __init__(self, input_shape, kernel_size, extend_scope, morph):
         self.num_points = kernel_size
         self.width = input_shape[2]
@@ -1051,22 +1010,16 @@ class DSC(object):
             if if_offset:
                 center = self.num_points // 2
                 left = y_offset[:, :center].flip(1).cumsum(1).flip(1)
-                right = y_offset[:, center + 1:].cumsum(1)
-                y_offset_new = torch.cat((left, y_offset[:, center:center + 1] * 0, right), 1)
+                right = y_offset[:, center + 1 :].cumsum(1)
+                y_offset_new = torch.cat((left, y_offset[:, center : center + 1] * 0, right), 1)
                 y_new = y_new.add(y_offset_new.mul(self.extend_scope))
 
-            y_new = y_new.reshape(
-                [self.num_batch, self.num_points, 1, self.width, self.height])
+            y_new = y_new.reshape([self.num_batch, self.num_points, 1, self.width, self.height])
             y_new = y_new.permute(0, 3, 1, 4, 2)
-            y_new = y_new.reshape([
-                self.num_batch, self.num_points * self.width, 1 * self.height
-            ])
-            x_new = x_new.reshape(
-                [self.num_batch, self.num_points, 1, self.width, self.height])
+            y_new = y_new.reshape([self.num_batch, self.num_points * self.width, 1 * self.height])
+            x_new = x_new.reshape([self.num_batch, self.num_points, 1, self.width, self.height])
             x_new = x_new.permute(0, 3, 1, 4, 2)
-            x_new = x_new.reshape([
-                self.num_batch, self.num_points * self.width, 1 * self.height
-            ])
+            x_new = x_new.reshape([self.num_batch, self.num_points * self.width, 1 * self.height])
             return y_new, x_new
 
         else:
@@ -1105,22 +1058,16 @@ class DSC(object):
             if if_offset:
                 center = self.num_points // 2
                 left = x_offset[:, :center].flip(1).cumsum(1).flip(1)
-                right = x_offset[:, center + 1:].cumsum(1)
-                x_offset_new = torch.cat((left, x_offset[:, center:center + 1] * 0, right), 1)
+                right = x_offset[:, center + 1 :].cumsum(1)
+                x_offset_new = torch.cat((left, x_offset[:, center : center + 1] * 0, right), 1)
                 x_new = x_new.add(x_offset_new.mul(self.extend_scope))
 
-            y_new = y_new.reshape(
-                [self.num_batch, 1, self.num_points, self.width, self.height])
+            y_new = y_new.reshape([self.num_batch, 1, self.num_points, self.width, self.height])
             y_new = y_new.permute(0, 3, 1, 4, 2)
-            y_new = y_new.reshape([
-                self.num_batch, 1 * self.width, self.num_points * self.height
-            ])
-            x_new = x_new.reshape(
-                [self.num_batch, 1, self.num_points, self.width, self.height])
+            y_new = y_new.reshape([self.num_batch, 1 * self.width, self.num_points * self.height])
+            x_new = x_new.reshape([self.num_batch, 1, self.num_points, self.width, self.height])
             x_new = x_new.permute(0, 3, 1, 4, 2)
-            x_new = x_new.reshape([
-                self.num_batch, 1 * self.width, self.num_points * self.height
-            ])
+            x_new = x_new.reshape([self.num_batch, 1 * self.width, self.num_points * self.height])
             return y_new, x_new
 
     """
@@ -1143,15 +1090,14 @@ class DSC(object):
         deformed_feature = self._bilinear_interpolate_3D(input, y, x)
         return deformed_feature
 
-class DODConv(nn.Module):
-    """
-    Legacy-named wrapper around unmodulated deformable convolution.
 
-    The configured groups=1 operation is not depthwise convolution. This class
-    does not implement depthwise weight over-parameterization or establish
-    equivalence to a published DO-DConv method. See CUSTOM_MODULE_REVIEW.md.
-    This module learns to dynamically adjust the sampling locations of the convolution kernel
-    to adapt to the geometric structure of the input features.
+class DODConv(nn.Module):
+    """Legacy-named wrapper around unmodulated deformable convolution.
+
+    The configured groups=1 operation is not depthwise convolution. This class does not implement depthwise weight
+    over-parameterization or establish equivalence to a published DO-DConv method. See CUSTOM_MODULE_REVIEW.md. This
+    module learns to dynamically adjust the sampling locations of the convolution kernel to adapt to the geometric
+    structure of the input features.
 
     Args:
         in_channels (int): Number of input channels.
@@ -1162,10 +1108,11 @@ class DODConv(nn.Module):
         groups (int): Number of groups for grouped convolution.
         bias (bool): Whether to use a bias term.
     """
+
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, groups=1, bias=False):
-        super(DODConv, self).__init__()
+        super().__init__()
         assert out_channels % groups == 0, f"out_channels {out_channels} is not divisible by groups {groups}"
-        
+
         self.kernel_size = (kernel_size, kernel_size)
         self.stride = (stride, stride)
         self.padding = (padding, padding)
@@ -1180,20 +1127,18 @@ class DODConv(nn.Module):
             kernel_size=self.kernel_size,
             stride=self.stride,
             padding=self.padding,
-            bias=True
+            bias=True,
         )
-        
+
         # The main convolutional weight parameter. This is what will be applied at the
         # deformed sampling locations.
-        self.weight = nn.Parameter(
-            torch.Tensor(out_channels, in_channels // groups, *self.kernel_size)
-        )
-        
+        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *self.kernel_size))
+
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels))
         else:
             self.bias = None
-            
+
         self.init_weights()
 
     def init_weights(self):
@@ -1209,7 +1154,7 @@ class DODConv(nn.Module):
     def forward(self, x):
         # Generate the offsets from the input feature map.
         offsets = self.offset_conv(x)
-        
+
         # Perform the deformable convolution.
         # The `deform_conv2d` function takes the input, offsets, and weights
         # and performs the convolution on the dynamically adjusted sampling grid.
@@ -1222,26 +1167,25 @@ class DODConv(nn.Module):
             padding=self.padding,
         )
         return out
-    
-    
+
+
 class WCA(nn.Module):
+    """Weighted Channel Attention (WCA) module, using a (3, 1) pooled-axis transform. Paper:
+    https://github.com/cccp421/Fracture-Detection-WCAY.
     """
-    Weighted Channel Attention (WCA) module, using a (3, 1) pooled-axis transform.
-    Paper: https://github.com/cccp421/Fracture-Detection-WCAY
-    """
-    
+
     def __init__(self, channels):
         super().__init__()
-        
+
         # No global-pooling branch is consumed by forward. Avoid registering unused
         # trainable parameters; the active coordinate-attention calculation is unchanged.
-        
+
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
-        
+
         self.conv_hw = Conv(channels, channels, (3, 1))  # ✅ Matches repo - no padding specified
         self.conv_pool_hw = Conv(channels, channels, 1)
-        
+
     def forward(self, x):
         _, _, h, w = x.size()
         x_pool_h, x_pool_w = self.pool_h(x), self.pool_w(x).permute(0, 1, 3, 2)
@@ -1255,14 +1199,14 @@ class WCA(nn.Module):
         a_w = x_pool_w.permute(0, 1, 3, 2).sigmoid()
         out = x * a_h * a_w
         return out
-    
+
+
 class GAM_Attention(nn.Module):
-    """
-    Global Attention Mechanism (GAM) Attention Module.
-    
-    Combines channel attention and spatial attention mechanisms for comprehensive
-    feature refinement across both channel and spatial dimensions.
-    
+    """Global Attention Mechanism (GAM) Attention Module.
+
+    Combines channel attention and spatial attention mechanisms for comprehensive feature refinement across both channel
+    and spatial dimensions.
+
     Args:
         c1 (int): Input channels.
         c2 (int): Output channels.
@@ -1271,36 +1215,35 @@ class GAM_Attention(nn.Module):
     """
 
     def __init__(self, c1, c2, group=True, rate=4):
-        super(GAM_Attention, self).__init__()
+        super().__init__()
 
         self.channel_attention = nn.Sequential(
-            nn.Linear(c1, int(c1 / rate)),
-            nn.ReLU(inplace=True),
-            nn.Linear(int(c1 / rate), c1)
+            nn.Linear(c1, int(c1 / rate)), nn.ReLU(inplace=True), nn.Linear(int(c1 / rate), c1)
         )
 
         self.spatial_attention = nn.Sequential(
-            nn.Conv2d(c1, c1 // rate, kernel_size=7, padding=3, groups=rate) if group else 
-            nn.Conv2d(c1, int(c1 / rate), kernel_size=7, padding=3),
+            nn.Conv2d(c1, c1 // rate, kernel_size=7, padding=3, groups=rate)
+            if group
+            else nn.Conv2d(c1, int(c1 / rate), kernel_size=7, padding=3),
             nn.BatchNorm2d(int(c1 / rate)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(c1 // rate, c2, kernel_size=7, padding=3, groups=rate) if group else 
-            nn.Conv2d(int(c1 / rate), c2, kernel_size=7, padding=3),
-            nn.BatchNorm2d(c2)
+            nn.Conv2d(c1 // rate, c2, kernel_size=7, padding=3, groups=rate)
+            if group
+            else nn.Conv2d(int(c1 / rate), c2, kernel_size=7, padding=3),
+            nn.BatchNorm2d(c2),
         )
 
     def forward(self, x):
-        """
-        Forward pass through GAM Attention module.
-        
+        """Forward pass through GAM Attention module.
+
         Args:
             x (torch.Tensor): Input tensor of shape (B, C, H, W)
-            
+
         Returns:
             torch.Tensor: Output tensor with applied attention mechanisms
         """
         b, c, h, w = x.shape
-        
+
         # Channel attention
         x_permute = x.permute(0, 2, 3, 1).view(b, -1, c)
         x_att_permute = self.channel_attention(x_permute).view(b, h, w, c)
@@ -1313,65 +1256,65 @@ class GAM_Attention(nn.Module):
         x_spatial_att = channel_shuffle(x_spatial_att, 4)  # last shuffle
         out = x * x_spatial_att
         # out = channel_shuffle(out, 4)  # optional shuffle
-        
+
         return out
-    
+
+
 class HetConv(nn.Module):
-    """
-    Heterogeneous Convolution (HetConv) - Combines groupwise and pointwise convolution.
-    
-    This module combines a groupwise convolution and a pointwise convolution to create
-    a heterogeneous convolution that can be more efficient than standard convolutions.
-    This parallel-branch approximation retains a pointwise term on every channel
-    pair; it is not the paper's exact shifted heterogeneous-filter parameterization.
-    
+    """Heterogeneous Convolution (HetConv) - Combines groupwise and pointwise convolution.
+
+    This module combines a groupwise convolution and a pointwise convolution to create a heterogeneous convolution that
+    can be more efficient than standard convolutions. This parallel-branch approximation retains a pointwise term on
+    every channel pair; it is not the paper's exact shifted heterogeneous-filter parameterization.
+
     Args:
         in_channels (int): Number of input channels
-        out_channels (int): Number of output channels  
+        out_channels (int): Number of output channels
         p (int): Number of groups for groupwise convolution
         kernel_size (int): Kernel size for groupwise convolution
         stride (int): Stride for convolution
         padding (int): Padding for convolution
         bias (bool): Whether to use bias
-        
+
     Attributes:
         gwc (nn.Conv2d): Groupwise convolution layer
         pwc (nn.Conv2d): Pointwise convolution layer
     """
 
     def __init__(self, in_channels, out_channels, p=4, kernel_size=3, stride=1, padding=None, bias=False):
-        super(HetConv, self).__init__()
-        
+        super().__init__()
+
         # Auto-padding to maintain spatial dimensions
         if padding is None:
             padding = kernel_size // 2
-            
+
         # Groupwise Convolution
-        self.gwc = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, 
-                            stride=stride, padding=padding, groups=p, bias=bias)
-        # Pointwise Convolution  
-        self.pwc = nn.Conv2d(in_channels, out_channels, kernel_size=1, 
-                            stride=stride, bias=bias)
+        self.gwc = nn.Conv2d(
+            in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, groups=p, bias=bias
+        )
+        # Pointwise Convolution
+        self.pwc = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=bias)
 
     def forward(self, x):
-        """
-        Forward pass through HetConv.
-        
+        """Forward pass through HetConv.
+
         Args:
             x (torch.Tensor): Input tensor of shape (B, C, H, W)
-            
+
         Returns:
             torch.Tensor: Output tensor of shape (B, C_out, H_out, W_out)
         """
         return self.gwc(x) + self.pwc(x)
-    
+
+
 class ConvBNReLU(nn.Module):
-    '''Module for the Conv-BN-ReLU tuple.'''
+    """Module for the Conv-BN-ReLU tuple."""
+
     def __init__(self, c_in, c_out, kernel_size, stride, padding, dilation, use_relu=True):
-        super(ConvBNReLU, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(
-            c_in, c_out, kernel_size=kernel_size, stride=stride, 
-            padding=padding, dilation=dilation, bias=False)
+            c_in, c_out, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation, bias=False
+        )
         self.bn = nn.BatchNorm2d(c_out)
         if use_relu:
             self.relu = nn.ReLU(inplace=True)
@@ -1387,46 +1330,45 @@ class ConvBNReLU(nn.Module):
 
 
 class CARAFE(nn.Module):
-    """CARAFE: Content-Aware ReAssembly of FEatures
+    """CARAFE: Content-Aware ReAssembly of FEatures.
 
-    Uses a BN/ReLU kernel-prediction adaptation; the reassembly is a normalized
-    weighted sum of low-resolution neighbors. See CUSTOM_MODULE_REVIEW.md.
-    
+    Uses a BN/ReLU kernel-prediction adaptation; the reassembly is a normalized weighted sum of low-resolution
+    neighbors. See CUSTOM_MODULE_REVIEW.md.
+
     Args:
         c: Input channels
-        c_mid: Compressed channel size  
+        c_mid: Compressed channel size
         scale: Upscale factor
         k_up: Upsample kernel size
         k_enc: Encoder kernel size
     """
+
     def __init__(self, c, c_mid=64, scale=2, k_up=5, k_enc=3):
-        super(CARAFE, self).__init__()
+        super().__init__()
         self.scale = scale
 
-        self.comp = ConvBNReLU(c, c_mid, kernel_size=1, stride=1, 
-                               padding=0, dilation=1)
-        self.enc = ConvBNReLU(c_mid, (scale*k_up)**2, kernel_size=k_enc, 
-                              stride=1, padding=k_enc//2, dilation=1, 
-                              use_relu=False)
+        self.comp = ConvBNReLU(c, c_mid, kernel_size=1, stride=1, padding=0, dilation=1)
+        self.enc = ConvBNReLU(
+            c_mid, (scale * k_up) ** 2, kernel_size=k_enc, stride=1, padding=k_enc // 2, dilation=1, use_relu=False
+        )
         self.pix_shf = nn.PixelShuffle(scale)
-        self.upsmp = nn.Upsample(scale_factor=scale, mode='nearest')
-        self.unfold = nn.Unfold(kernel_size=k_up, dilation=scale, 
-                                padding=k_up//2*scale)
+        self.upsmp = nn.Upsample(scale_factor=scale, mode="nearest")
+        self.unfold = nn.Unfold(kernel_size=k_up, dilation=scale, padding=k_up // 2 * scale)
 
     def forward(self, X):
         b, c, h, w = X.size()
         h_, w_ = h * self.scale, w * self.scale
-        
+
         # Generate reassembly kernels
-        W = self.comp(X)                                # b * c_mid * h * w
-        W = self.enc(W)                                 # b * (scale*k_up)^2 * h * w
-        W = self.pix_shf(W)                             # b * k_up^2 * h_ * w_
-        W = F.softmax(W, dim=1)                         # b * k_up^2 * h_ * w_
+        W = self.comp(X)  # b * c_mid * h * w
+        W = self.enc(W)  # b * (scale*k_up)^2 * h * w
+        W = self.pix_shf(W)  # b * k_up^2 * h_ * w_
+        W = F.softmax(W, dim=1)  # b * k_up^2 * h_ * w_
 
         # Reassemble features
-        X = self.upsmp(X)                               # b * c * h_ * w_
-        X = self.unfold(X)                              # b * (c * k_up^2) * (h_ * w_)
-        X = X.view(b, c, -1, h_, w_)                    # b * k_up^2 * c * h_ * w_
+        X = self.upsmp(X)  # b * c * h_ * w_
+        X = self.unfold(X)  # b * (c * k_up^2) * (h_ * w_)
+        X = X.view(b, c, -1, h_, w_)  # b * k_up^2 * c * h_ * w_
 
-        X = torch.einsum('bkhw,bckhw->bchw', [W, X])    # b * c * h_ * w_
+        X = torch.einsum("bkhw,bckhw->bchw", [W, X])  # b * c * h_ * w_
         return X
