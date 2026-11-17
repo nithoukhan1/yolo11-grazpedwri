@@ -11,10 +11,10 @@ import argparse
 import gc
 import math
 import os
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 if (ROOT.parent / ".repair_deps").is_dir():
@@ -25,14 +25,22 @@ os.environ["YOLO_OFFLINE"] = "true"
 os.environ["YOLO_AUTOINSTALL"] = "false"
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 from ultralytics.cfg import get_cfg
-from ultralytics.nn.modules.block import BiLevelRoutingAttention, C2MSDA, C3k2_DSConv
+from ultralytics.nn.modules.block import C2MSDA, BiLevelRoutingAttention, C3k2_DSConv
 from ultralytics.nn.modules.conv import (
-    CARAFE, DSC, DSConv, DODConv, DySample, DySnakeConv, GAM_Attention,
-    HetConv, ResBlock_CBAM, WCA,
+    CARAFE,
+    DSC,
+    WCA,
+    DODConv,
+    DSConv,
+    DySample,
+    DySnakeConv,
+    GAM_Attention,
+    HetConv,
+    ResBlock_CBAM,
 )
 from ultralytics.nn.modules.msda import MSDA
 from ultralytics.nn.tasks import DetectionModel
@@ -75,9 +83,11 @@ class CustomModules(unittest.TestCase):
         for kernel in (3, 5):
             for morph in (0, 1):
                 offsets = torch.randn(2, 2 * kernel, 5, 7) * 0.3
-                actual = DSC(x.shape, kernel, 1, morph).deform_conv(
-                    x.to(OPTIONS.device), offsets.to(OPTIONS.device), True
-                ).cpu()
+                actual = (
+                    DSC(x.shape, kernel, 1, morph)
+                    .deform_conv(x.to(OPTIONS.device), offsets.to(OPTIONS.device), True)
+                    .cpu()
+                )
                 expected = torch.empty_like(actual)
                 center = kernel // 2
                 for b in range(2):
@@ -92,10 +102,12 @@ class CustomModules(unittest.TestCase):
                                 y0, x0 = math.floor(y), math.floor(xx)
                                 y1, x1 = min(y0 + 1, 4), min(x0 + 1, 6)
                                 fy, fx = y - y0, xx - x0
-                                value = ((1 - fy) * (1 - fx) * x[b, :, y0, x0]
-                                         + (1 - fy) * fx * x[b, :, y0, x1]
-                                         + fy * (1 - fx) * x[b, :, y1, x0]
-                                         + fy * fx * x[b, :, y1, x1])
+                                value = (
+                                    (1 - fy) * (1 - fx) * x[b, :, y0, x0]
+                                    + (1 - fy) * fx * x[b, :, y0, x1]
+                                    + fy * (1 - fx) * x[b, :, y1, x0]
+                                    + fy * fx * x[b, :, y1, x1]
+                                )
                                 if morph == 0:
                                     expected[b, :, row * kernel + j, col] = value
                                 else:
@@ -116,7 +128,9 @@ class CustomModules(unittest.TestCase):
                             for kc in range(3):
                                 rr, cc = row // scale + kr - 1, col // scale + kc - 1
                                 if 0 <= rr < 3 and 0 <= cc < 5:
-                                    expected[:, :, row, col] += weights[:, kr * 3 + kc, row, col, None] * x[:, :, rr, cc]
+                                    expected[:, :, row, col] += (
+                                        weights[:, kr * 3 + kc, row, col, None] * x[:, :, rr, cc]
+                                    )
                 torch.testing.assert_close(layer(x), expected, atol=3e-6, rtol=5e-5)
 
     def test_routing_single_window_equals_global_attention(self):
@@ -125,9 +139,11 @@ class CustomModules(unittest.TestCase):
         x = torch.randn(2, 16, 3, 5, device=OPTIONS.device)
         tokens = x.flatten(2).transpose(1, 2)
         q, k, v = layer.qkv.qkv(tokens).chunk(3, dim=-1)
+
         def heads(t):
             return t.reshape(2, 15, 4, 4).transpose(1, 2)
-        weights = ((heads(q) * (16 ** -0.5)) @ heads(k).transpose(-2, -1)).softmax(-1)
+
+        weights = ((heads(q) * (16**-0.5)) @ heads(k).transpose(-2, -1)).softmax(-1)
         attended = (weights @ heads(v)).transpose(1, 2).reshape(2, 15, 16)
         expected = layer.wo(attended).transpose(1, 2).reshape_as(x)
         torch.testing.assert_close(layer(x), expected)
@@ -139,7 +155,7 @@ class CustomModules(unittest.TestCase):
             weight = F.pad(layer.pwc.weight, (1, 1, 1, 1)).clone()
             for out in range(12):
                 group = out // 3
-                weight[out, group * 2:(group + 1) * 2] += layer.gwc.weight[out]
+                weight[out, group * 2 : (group + 1) * 2] += layer.gwc.weight[out]
             x = torch.randn(2, 8, 7, 9, device=OPTIONS.device)
             torch.testing.assert_close(layer(x), F.conv2d(x, weight, stride=stride, padding=1))
 
@@ -148,11 +164,11 @@ class CustomModules(unittest.TestCase):
         layer = MSDA(6, num_heads=3, dilations=(1, 2, 3)).to(OPTIONS.device).eval()
         x = torch.randn(2, 6, 4, 5, device=OPTIONS.device)
         with torch.no_grad():
-            layer.qkv.weight[:2 * layer.inner_dim].zero_()
+            layer.qkv.weight[: 2 * layer.inner_dim].zero_()
             for p in layer.ffn.parameters():
                 p.zero_()
             normalized = layer._norm(x, layer.norm1)
-            value = F.conv2d(normalized, layer.qkv.weight[2 * layer.inner_dim:])
+            value = F.conv2d(normalized, layer.qkv.weight[2 * layer.inner_dim :])
             groups = value.chunk(3, dim=1)
             means = []
             for part, dilation in zip(groups, layer.dilations):
@@ -164,10 +180,16 @@ class CustomModules(unittest.TestCase):
     def test_all_eleven_module_types_have_finite_gradients(self):
         layers = [
             BiLevelRoutingAttention(16, num_heads=4, n_win=2, topk=2),
-            C2MSDA(16, 16), C3k2_DSConv(16, 16, c3k=True),
-            CARAFE(16, c_mid=8, k_up=3), DODConv(16, 16), DySample(16),
-            DySnakeConv(16, 16), GAM_Attention(16, 16), HetConv(16, 16),
-            ResBlock_CBAM(16, 16), WCA(16),
+            C2MSDA(16, 16),
+            C3k2_DSConv(16, 16, c3k=True),
+            CARAFE(16, c_mid=8, k_up=3),
+            DODConv(16, 16),
+            DySample(16),
+            DySnakeConv(16, 16),
+            GAM_Attention(16, 16),
+            HetConv(16, 16),
+            ResBlock_CBAM(16, 16),
+            WCA(16),
         ]
         for layer in layers:
             with self.subTest(module=type(layer).__name__):
@@ -201,16 +223,22 @@ class CustomModules(unittest.TestCase):
             self.skipTest("pass --models to run loss/backward/inference for all 13 detection configurations")
         directory = ROOT / "ultralytics/cfg/models/11"
         excluded = {"yolo11-cls", "yolo11-cls-resnet18", "yolo11-seg", "yolo11-pose", "yolo11-obb"}
-        paths = [directory / "yolo11.yaml", *[p for p in sorted(directory.glob("yolo11-*.yaml")) if p.stem not in excluded]]
+        paths = [
+            directory / "yolo11.yaml",
+            *[p for p in sorted(directory.glob("yolo11-*.yaml")) if p.stem not in excluded],
+        ]
         for path in paths:
             with self.subTest(model=path.name):
                 model = DetectionModel(str(path), verbose=False).to(OPTIONS.device)
                 model.args = get_cfg()
                 model.train()
                 images = torch.randn(2, 3, OPTIONS.imgsz, OPTIONS.imgsz, device=OPTIONS.device)
-                batch = dict(img=images, batch_idx=torch.tensor([1.], device=OPTIONS.device),
-                             cls=torch.tensor([[0.]], device=OPTIONS.device),
-                             bboxes=torch.tensor([[.5, .5, .25, .25]], device=OPTIONS.device))
+                batch = {
+                    "img": images,
+                    "batch_idx": torch.tensor([1.0], device=OPTIONS.device),
+                    "cls": torch.tensor([[0.0]], device=OPTIONS.device),
+                    "bboxes": torch.tensor([[0.5, 0.5, 0.25, 0.25]], device=OPTIONS.device),
+                }
                 loss, _ = model.loss(batch)
                 self.assertTrue(torch.isfinite(loss).all())
                 loss.sum().backward()
@@ -229,7 +257,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", default="cpu", help="cpu, cuda, or cuda:0")
     parser.add_argument("--models", action="store_true", help="also test the complete detection models")
-    parser.add_argument("--imgsz", type=int, default=64, help="model-check image side; positive multiple of 32, at least 64")
+    parser.add_argument(
+        "--imgsz", type=int, default=64, help="model-check image side; positive multiple of 32, at least 64"
+    )
     OPTIONS, remaining = parser.parse_known_args()
     if OPTIONS.imgsz < 64 or OPTIONS.imgsz % 32:
         parser.error("--imgsz must be at least 64 and divisible by 32")
