@@ -4,30 +4,30 @@ The implementation has now been changed. The original 2026-11-14 reports describ
 
 ## Numbered findings
 
-| Finding | Change | Verification |
-| --- | --- | --- |
-| 1–2 | Snake sampling uses per-image grid sampling; cumulative offsets retain gradients and include both outer positions. | Independent-image equivalence and nonzero finite gradients for both morphs and kernels 3/5; complete models on CPU/GPU. |
-| 3 | Added an explicitly documented DilateFormer-inspired MSDA adapter; repaired C2MSDA's argument contract. | Shape/gradient checks; both affected complete models work across all five scales. Exact original architecture remains unidentified. |
-| 4 | Parser inserts the repeat argument exactly once. | Complete C3k2_DSConv model construction, loss/backward, inference, all-scale checks. |
-| 5 | Corrected YAML arguments; standalone snake blocks explicitly downsample and project concatenated channels. | Complete DySnakeConv model checks, including all scales and a GPU optimizer step. This repaired architecture requires fresh experiments. |
-| 6 | Corrected routing-attention default head/window order. | Complete routing-attention model checks and all scales. |
-| 7 | Declared `einops` in package dependencies; installed it into workspace-only `.repair_deps` for testing. | Real local imports and CLI launcher work. Global Python packages were not changed. |
-| 8 | Mask-loss loop iterates over images and selects instance masks inside the loop. | Sparse two-image batch matches direct expected loss and supplies a gradient for the second image. |
-| 9 | Disk cache honors the requested channel flag; incompatible existing channel caches are rejected/rebuilt. | Grayscale cache creation and loading of an incompatible color cache. |
-| 10 | Partial checkpoint loading checks source-key membership. | Differently named source backbone loads without KeyError. |
-| 11 | AMP broadcast retains the tensor receiving the value. | Executes actual broadcast statements with a synthetic receiving rank; live multi-rank DDP was not run. |
-| 12 | SciPy assignment maximizes IoU using negated costs. | The documented two-match example now returns two true positives. |
-| 13 | Small-batch crop bounds are clipped to mask dimensions. | Boundary-crossing example retains the expected nine pixels. |
-| 14 | Transposed-convolution fusion scales the real output-channel axis, including groups. | Fused/unfused equivalence with groups 1/2/4 and bias enabled/disabled. |
-| 15 | Weight reset restores and freezes fixed DFL bin projections. | Actual YOLO reset preserves bin values and frozen status. |
-| 16 | Conv2 distinguishes branch fusion from full BN fusion. | Numerical equivalence for both fusion stages. |
-| 17–18 | Cache identity includes timestamps and annotation contents; grounding passes a path list. | Equal-size label edits with preserved mtime and changed-size path identity checks; grounding call sites corrected. |
-| 19 | Classification splitting rejects populated destinations. | A second split is rejected without modifying the existing independent memberships. |
-| 20 | RT-DETR filters sorted predictions using their current confidence column. | The 0.9-confidence detection is retained and the 0.1 detection removed. |
-| 21 | TinyViT reads cached bias only in eval mode and correctly returns self from train(). | Fresh training, eval, and repeated train transitions with gradients. |
-| 22 | DDP files serialize Windows model paths with repr. | Generated worker file compiles and preserves the absolute path. |
-| 23 | Comet checks a positive save period before modulo. | Metadata helper handles save_period=0 without connecting to Comet. |
-| 24 | TorchVision video classifier returns nested label/confidence lists to match its renderer. | Original postprocessor output can be consumed by the rendering contract. |
+| Finding | Change                                                                                                             | Verification                                                                                                                             |
+| ------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1–2     | Snake sampling uses per-image grid sampling; cumulative offsets retain gradients and include both outer positions. | Independent-image equivalence and nonzero finite gradients for both morphs and kernels 3/5; complete models on CPU/GPU.                  |
+| 3       | Added an explicitly documented DilateFormer-inspired MSDA adapter; repaired C2MSDA's argument contract.            | Shape/gradient checks; both affected complete models work across all five scales. Exact original architecture remains unidentified.      |
+| 4       | Parser inserts the repeat argument exactly once.                                                                   | Complete C3k2_DSConv model construction, loss/backward, inference, all-scale checks.                                                     |
+| 5       | Corrected YAML arguments; standalone snake blocks explicitly downsample and project concatenated channels.         | Complete DySnakeConv model checks, including all scales and a GPU optimizer step. This repaired architecture requires fresh experiments. |
+| 6       | Corrected routing-attention default head/window order.                                                             | Complete routing-attention model checks and all scales.                                                                                  |
+| 7       | Declared `einops` in package dependencies; installed it into workspace-only `.repair_deps` for testing.            | Real local imports and CLI launcher work. Global Python packages were not changed.                                                       |
+| 8       | Mask-loss loop iterates over images and selects instance masks inside the loop.                                    | Sparse two-image batch matches direct expected loss and supplies a gradient for the second image.                                        |
+| 9       | Disk cache honors the requested channel flag; incompatible existing channel caches are rejected/rebuilt.           | Grayscale cache creation and loading of an incompatible color cache.                                                                     |
+| 10      | Partial checkpoint loading checks source-key membership.                                                           | Differently named source backbone loads without KeyError.                                                                                |
+| 11      | AMP broadcast retains the tensor receiving the value.                                                              | Executes actual broadcast statements with a synthetic receiving rank; live multi-rank DDP was not run.                                   |
+| 12      | SciPy assignment maximizes IoU using negated costs.                                                                | The documented two-match example now returns two true positives.                                                                         |
+| 13      | Small-batch crop bounds are clipped to mask dimensions.                                                            | Boundary-crossing example retains the expected nine pixels.                                                                              |
+| 14      | Transposed-convolution fusion scales the real output-channel axis, including groups.                               | Fused/unfused equivalence with groups 1/2/4 and bias enabled/disabled.                                                                   |
+| 15      | Weight reset restores and freezes fixed DFL bin projections.                                                       | Actual YOLO reset preserves bin values and frozen status.                                                                                |
+| 16      | Conv2 distinguishes branch fusion from full BN fusion.                                                             | Numerical equivalence for both fusion stages.                                                                                            |
+| 17–18   | Cache identity includes timestamps and annotation contents; grounding passes a path list.                          | Equal-size label edits with preserved mtime and changed-size path identity checks; grounding call sites corrected.                       |
+| 19      | Classification splitting rejects populated destinations.                                                           | A second split is rejected without modifying the existing independent memberships.                                                       |
+| 20      | RT-DETR filters sorted predictions using their current confidence column.                                          | The 0.9-confidence detection is retained and the 0.1 detection removed.                                                                  |
+| 21      | TinyViT reads cached bias only in eval mode and correctly returns self from train().                               | Fresh training, eval, and repeated train transitions with gradients.                                                                     |
+| 22      | DDP files serialize Windows model paths with repr.                                                                 | Generated worker file compiles and preserves the absolute path.                                                                          |
+| 23      | Comet checks a positive save period before modulo.                                                                 | Metadata helper handles save_period=0 without connecting to Comet.                                                                       |
+| 24      | TorchVision video classifier returns nested label/confidence lists to match its renderer.                          | Original postprocessor output can be consumed by the rendering contract.                                                                 |
 
 ## Validation completed
 
