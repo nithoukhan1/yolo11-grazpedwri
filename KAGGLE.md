@@ -16,11 +16,12 @@ source belongs to this clone:
 
 ```python
 from pathlib import Path
+
 import ultralytics
 
 source = Path(ultralytics.__file__).resolve()
 print(source)
-assert Path('/kaggle/working/yolo11-grazpedwri') in source.parents
+assert Path("/kaggle/working/yolo11-grazpedwri") in source.parents
 ```
 
 Check the custom modules and all thirteen default n-scale detection configurations:
@@ -45,16 +46,16 @@ Start with a short baseline run using your real dataset YAML:
 ```python
 from ultralytics import YOLO
 
-model = YOLO('ultralytics/cfg/models/11/yolo11.yaml')
+model = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
 model.train(
-    data='/kaggle/input/YOUR_DATASET/YOUR_DATA_YAML.yaml',  # replace this path
+    data="/kaggle/input/YOUR_DATASET/YOUR_DATA_YAML.yaml",  # replace this path
     epochs=3,
     imgsz=640,
     batch=2,
     device=0,
     amp=False,
-    project='/kaggle/working/runs',
-    name='baseline_smoke',
+    project="/kaggle/working/runs",
+    name="baseline_smoke",
 )
 ```
 
@@ -66,7 +67,7 @@ training, validation, and checkpoint saving complete before starting full runs.
 For an individual custom model, replace the model YAML path, for example:
 
 ```python
-model = YOLO('ultralytics/cfg/models/11/yolo11-DySample.yaml')
+model = YOLO("ultralytics/cfg/models/11/yolo11-DySample.yaml")
 ```
 
 Use the same data split and planned initialization/training protocol when
