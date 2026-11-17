@@ -62,8 +62,7 @@ class ChartWidget {
       const action = button.dataset.action;
       if (action === "png") this.downloadPNG();
       if (action === "csv") this.downloadCSV();
-      if (action === "ultralytics")
-        window.open("https://ultralytics.com", "_blank");
+      if (action === "ultralytics") window.open("https://ultralytics.com", "_blank");
     });
 
     this.toolbar.querySelectorAll("button").forEach((btn) => {
